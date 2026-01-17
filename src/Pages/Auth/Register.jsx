@@ -133,7 +133,7 @@ const Register = () => {
             <input
               type="text"
               name="name"
-              placeholder="Amélie Laurent"
+              placeholder="Your name"
               className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-yellow-400"
               required
             />

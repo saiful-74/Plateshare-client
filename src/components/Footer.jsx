@@ -77,7 +77,7 @@ const Footer = () => {
   </a>
 
   <a
-    href="https://github.com/rafiul040"
+    href="https://github.com/saiful-74"
     target="_blank"
     rel="noopener noreferrer"
     className="hover:text-[#b48518] transition"
@@ -86,7 +86,7 @@ const Footer = () => {
   </a>
 
   <a
-    href="https://www.facebook.com/rafiulislam22"
+    href="https://www.facebook.com/d.saif01"
     target="_blank"
     rel="noopener noreferrer"
     className="hover:text-[#b48518] transition"
