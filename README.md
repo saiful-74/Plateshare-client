@@ -60,4 +60,4 @@ Hosting: Client (Netlify/Firebase), Server (Vercel)
 
 🔗 Live Site
 
-ektu time lagbe
+precious-sherbet-5eb747.netlify.app
