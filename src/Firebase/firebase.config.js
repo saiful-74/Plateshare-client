@@ -2,18 +2,13 @@ import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyClAZ-ueuOk0XZENQaeq65U3wqikIYVnZI",
-  authDomain: "plateshare-saiful.firebaseapp.com",
-  projectId: "plateshare-saiful",
-  storageBucket: "plateshare-saiful.appspot.com",
-  messagingSenderId: "625715388812",
-  appId: "1:625715388812:web:470d9cb175ba48f90236a9",
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
 };
 
-// Initialize Firebase
 const app = initializeApp(firebaseConfig);
-
-// 🔐 Auth export
 export const auth = getAuth(app);
-
-export default app;

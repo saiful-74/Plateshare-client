@@ -1,8 +1,6 @@
-
 import React, { createContext, useState, useEffect } from "react";
-import { auth } from "../Firebase/firebase.config";
-import { onAuthStateChanged } from "firebase/auth";
-import { logout as firebaseLogout } from "../Hooks/useAuth";
+import { auth } from "../firebase/firebase.config";
+import { onAuthStateChanged, signOut } from "firebase/auth";
 
 export const AuthContext = createContext();
 
@@ -19,7 +17,7 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const logout = async () => {
-    await firebaseLogout();
+    await signOut(auth);
     setUser(null);
   };
 
@@ -29,4 +27,5 @@ export const AuthProvider = ({ children }) => {
     </AuthContext.Provider>
   );
 };
-export default AuthContext
+
+export default AuthContext;
