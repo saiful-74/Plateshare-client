@@ -1,5 +1,4 @@
 import React, { useContext, useState } from "react";
-import axios from "axios";
 import { toast } from "react-toastify";
 import { AuthContext } from "../../Context/AuthProvider";
 
@@ -9,37 +8,61 @@ const AddFood = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setLoading(true);
+
+    if (!user?.email) {
+      toast.error("Please login first!");
+      return;
+    }
 
     const form = e.target;
+
     const foodData = {
-      food_name: form.foodName.value,
-      food_image: form.foodImage.value,
-      food_quantity: form.foodQuantity.value,
-      pickup_location: form.pickupLocation.value,
+      food_name: form.foodName.value.trim(),
+      food_image: form.foodImage.value.trim(),
+      food_quantity: Number(form.foodQuantity.value),
+      pickup_location: form.pickupLocation.value.trim(),
       expire_date: form.expireDate.value,
-      additional_notes: form.additionalNotes.value,
+      additional_notes: form.additionalNotes.value?.trim() || "",
       food_status: "Available",
-      donator_name: user?.displayName,
+      donator_name: user?.displayName || "Unknown",
       donator_email: user?.email,
-      donator_photo: user?.photoURL,
+      donator_photo: user?.photoURL || "",
     };
 
-    try {
-      const res = await axios.post(
-        "https://plateshare-server-mu.vercel.app/add-food",
-        foodData
-      );
+    if (!foodData.food_name || !foodData.food_image || !foodData.pickup_location) {
+      toast.error("Please fill all required fields!");
+      return;
+    }
 
-      if (res.data.insertedId) {
+    try {
+      setLoading(true);
+
+      // ✅ Direct fetch to LOCAL backend
+      const res = await fetch("http://localhost:3000/add-food", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(foodData),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        console.log("Server error response:", data);
+        toast.error(data?.message || "Failed to add food (server error)");
+        return;
+      }
+
+      if (data?.insertedId) {
         toast.success("Food added successfully!");
         form.reset();
-
         window.dispatchEvent(new Event("foodAdded"));
+      } else {
+        toast.error("Food not added (no insertedId returned).");
+        console.log("Response:", data);
       }
-    } catch (error) {
-      console.error(error);
-      toast.error("Failed to add food");
+    } catch (err) {
+      console.error("Fetch error:", err);
+      toast.error("Failed to add food (network error)");
     } finally {
       setLoading(false);
     }
@@ -48,64 +71,46 @@ const AddFood = () => {
   return (
     <div className="max-w-2xl mx-auto my-12 p-8 bg-white rounded-xl shadow-lg">
       <title>Add Food | Plateshare</title>
+
       <h2 className="text-3xl font-bold text-center mb-8">Add New Food</h2>
 
       <form onSubmit={handleSubmit} className="space-y-5">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          <label className="-mb-3">Food Name :</label>
-          <input
-            type="text"
-            name="foodName"
-            placeholder="Food Name"
-            className="input input-bordered w-full"
-            required
-          />
-          <label className="-mb-3">Food URL :</label>
-          <input
-            type="url"
-            name="foodImage"
-            placeholder="Food Image URL"
-            className="input input-bordered w-full"
-            required
-          />
-          <label className="-mb-3">Food Quantity :</label>
-          <input
-            type="number"
-            name="foodQuantity"
-            placeholder="Quantity (serves how many)"
-            className="input input-bordered w-full"
-            required
-          />
-          <label className="-mb-3">Pickup Location :</label>
-          <input
-            type="text"
-            name="pickupLocation"
-            placeholder="Pickup Location"
-            className="input input-bordered w-full"
-            required
-          />
-          <label className="-mb-3">Expire Date :</label>
-          <input
-            type="date"
-            name="expireDate"
-            placeholder="Expire Date"
-            className="input input-bordered w-full"
-            required
-          />
+          <div className="space-y-2">
+            <label className="font-medium">Food Name :</label>
+            <input type="text" name="foodName" className="input input-bordered w-full" required />
+          </div>
+
+          <div className="space-y-2">
+            <label className="font-medium">Food URL :</label>
+            <input type="url" name="foodImage" className="input input-bordered w-full" required />
+          </div>
+
+          <div className="space-y-2">
+            <label className="font-medium">Food Quantity :</label>
+            <input type="number" name="foodQuantity" min="1" className="input input-bordered w-full" required />
+          </div>
+
+          <div className="space-y-2">
+            <label className="font-medium">Pickup Location :</label>
+            <input type="text" name="pickupLocation" className="input input-bordered w-full" required />
+          </div>
+
+          <div className="space-y-2 md:col-span-2">
+            <label className="font-medium">Expire Date :</label>
+            <input type="date" name="expireDate" className="input input-bordered w-full" required />
+          </div>
         </div>
 
-        <textarea
-          name="additionalNotes"
-          placeholder="Additional Notes (optional)"
-          className="textarea textarea-bordered w-full h-28"
-          rows="4"
-        ></textarea>
+        <div className="space-y-2">
+          <label className="font-medium">Additional Notes :</label>
+          <textarea name="additionalNotes" className="textarea textarea-bordered w-full h-28" rows="4"></textarea>
+        </div>
 
         <button
           type="submit"
           disabled={loading}
           className="btn btn-success cursor-pointer w-full text-amber-300 text-lg"
-        
         >
           {loading ? "Adding..." : "Add Food"}
         </button>
@@ -115,5 +120,3 @@ const AddFood = () => {
 };
 
 export default AddFood;
-
-
