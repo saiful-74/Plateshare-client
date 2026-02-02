@@ -5,8 +5,6 @@ import Swal from "sweetalert2";
 import axios from "axios";
 import FoodRequestsTable from "./FoodRequestsTable";
 
-
-
 const API = "https://plateshare-server-mu.vercel.app";
 
 const FoodDetails = () => {
@@ -17,21 +15,18 @@ const FoodDetails = () => {
   const [food, setFood] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  
   const [openRequestModal, setOpenRequestModal] = useState(false);
   const [locationInput, setLocationInput] = useState("");
   const [reasonInput, setReasonInput] = useState("");
   const [contactInput, setContactInput] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  
+  // Fetch food details
   useEffect(() => {
     setLoading(true);
     axios
       .get(`${API}/foods/${id}`)
-      .then((res) => {
-        setFood(res.data);
-      })
+      .then((res) => setFood(res.data))
       .catch((err) => {
         console.error(err);
         setFood(null);
@@ -39,47 +34,53 @@ const FoodDetails = () => {
       .finally(() => setLoading(false));
   }, [id]);
 
+  // Loading / Not found
   if (loading) return <p className="text-center py-20">Loading...</p>;
   if (!food) return <p className="text-center py-20">Food not found.</p>;
 
+  // Support both API shapes (donator nested OR flat)
+  const donatorEmail = food?.donator_email || food?.donator?.email || "";
+  const donatorName = food?.donator_name || food?.donator?.name || "";
+  const foodStatus = food?.food_status || "Available";
+
   const {
-    _id,
     food_name,
     food_image,
     food_quantity,
     pickup_location,
     expire_date,
-    donator_name,
-    donator_email,
     additional_notes,
-    food_status,
   } = food;
 
-  
+  // Open request modal
   const openModal = () => {
-    if (!user) {
+    // This route is private, but keep safe
+    if (!user?.email) {
       Swal.fire("Please login first!", "", "info");
       navigate("/login");
       return;
     }
-    if (food_status === "donated") {
+
+    if (foodStatus === "donated") {
       Swal.fire("This food is already donated.", "", "warning");
       return;
     }
-  
+
     setLocationInput("");
     setReasonInput("");
     setContactInput("");
     setOpenRequestModal(true);
   };
 
-  
+  // Submit request
   const submitRequest = async (e) => {
     e.preventDefault();
-    if (!user) {
+
+    if (!user?.email) {
       Swal.fire("Please login first!", "", "info");
       return;
     }
+
     if (!locationInput.trim() || !reasonInput.trim() || !contactInput.trim()) {
       Swal.fire("Please fill all fields.", "", "warning");
       return;
@@ -90,21 +91,19 @@ const FoodDetails = () => {
       requesterEmail: user.email,
       requesterName: user.displayName || "Anonymous",
       requesterPhoto: user.photoURL || "",
-      location: locationInput,
-      reason: reasonInput,
-      contact: contactInput,
-      donator_email: donator_email,
-      donator_name: donator_name,
-      status: "pending",
-      createdAt: new Date(),
+      location: locationInput.trim(),
+      reason: reasonInput.trim(),
+      contact: contactInput.trim(),
     };
 
     try {
       setSubmitting(true);
-      const res = await axios.post(`${API}/food-requests`, requestData);
 
-  
-      if (res.data.insertedId || res.data.acknowledged) {
+      // ✅ live server endpoint
+      const res = await axios.post(`${API}/requests`, requestData);
+
+      // Some servers return insertedId, some return acknowledged
+      if (res?.data?.insertedId || res?.data?.acknowledged) {
         Swal.fire("Request sent!", "Your request is pending approval.", "success");
         setOpenRequestModal(false);
       } else {
@@ -146,54 +145,57 @@ const FoodDetails = () => {
 
           <div className="bg-gray-50 p-4 rounded-lg border mt-6">
             <h3 className="font-semibold mb-1">Food Donator</h3>
-            <p>Name: {donator_name}</p>
-            <p>Email: {donator_email}</p>
+            <p>Name: {donatorName}</p>
+            <p>Email: {donatorEmail}</p>
           </div>
 
           <div className="mt-6 flex items-center gap-3">
             <button
               onClick={openModal}
               className={`px-6 py-3 rounded-lg shadow text-white ${
-                food_status === "donated"
+                foodStatus === "donated"
                   ? "bg-gray-400 cursor-not-allowed"
                   : "bg-yellow-600 hover:bg-yellow-700"
               }`}
-              disabled={food_status === "donated"}
+              disabled={foodStatus === "donated"}
             >
               Request This Food
             </button>
 
             <span
               className={`px-3 py-1 rounded text-sm font-medium ${
-                food_status === "Available"
+                foodStatus === "Available"
                   ? "bg-green-100 text-green-700"
                   : "bg-blue-100 text-blue-700"
               }`}
             >
-              {food_status}
+              {foodStatus}
             </span>
           </div>
         </div>
       </div>
 
-      
-      {user?.email === donator_email && (
+      {/* Donator view: requests table */}
+      {user?.email === donatorEmail && (
         <div className="mt-12">
           <h2 className="text-2xl font-semibold mb-4">Food Requests</h2>
-          <FoodRequestsTable foodId={id} onStatusUpdate={(newStatus) => {
-            
-            if (newStatus === "accepted") {
-              setFood((prev) => ({ ...prev, food_status: "donated" }));
-            }
-          }} />
+          <FoodRequestsTable
+            foodId={id}
+            onStatusUpdate={(newStatus) => {
+              if (newStatus === "accepted") {
+                setFood((prev) => ({ ...prev, food_status: "donated" }));
+              }
+            }}
+          />
         </div>
       )}
 
-      
+      {/* Request Modal */}
       {openRequestModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
           <div className="bg-white w-full max-w-md rounded-lg p-6 mx-4">
             <h3 className="text-lg font-semibold mb-3">Request Food</h3>
+
             <form onSubmit={submitRequest} className="space-y-3">
               <div>
                 <label className="text-sm font-medium">Location</label>
@@ -213,8 +215,8 @@ const FoodDetails = () => {
                   value={reasonInput}
                   onChange={(e) => setReasonInput(e.target.value)}
                   className="textarea textarea-bordered w-full mt-1"
-                  placeholder="Briefly explain why you need the food"
                   rows={4}
+                  placeholder="Briefly explain why you need the food"
                   required
                 />
               </div>
@@ -231,7 +233,7 @@ const FoodDetails = () => {
                 />
               </div>
 
-              <div className="flex gap-2 justify-end mt-2">
+              <div className="flex justify-end gap-2 mt-3">
                 <button
                   type="button"
                   onClick={() => setOpenRequestModal(false)}
