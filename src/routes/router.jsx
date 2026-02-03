@@ -46,30 +46,33 @@ export const router = createBrowserRouter([
         path: "/search-food",
         Component: FoodCard,
       },
-      {
-        path: "/add-food",
-        element: (
-          <PrivateRoute>
-            <AddFood />
-          </PrivateRoute>
-        ),
-      },
-      {
-        path: "/manage-my-foods",
-        element: (
-          <PrivateRoute>
-            <ManageMyFoods />
-          </PrivateRoute>
-        ),
-      },
-      {
-        path: "/my-food-request",
-        element: (
-          <PrivateRoute>
-            <MyFoodRequests />
-          </PrivateRoute>
-        ),
-      },
+  {
+  path: "/addFood",
+  element: (
+    <PrivateRoute>
+      <AddFood />
+    </PrivateRoute>
+  ),
+},
+
+    {
+  path: "/manageMyFoods",
+  element: (
+    <PrivateRoute>
+      <ManageMyFoods />
+    </PrivateRoute>
+  ),
+},
+
+     {
+  path: "/myFoodRequests",
+  element: (
+    <PrivateRoute>
+      <MyFoodRequests />
+    </PrivateRoute>
+  ),
+},
+
       
       {
         path: "/food/:id",
