@@ -1,46 +1,34 @@
-import React, { useEffect, useState, useContext } from "react";
-import { AuthContext } from "../../Context/AuthProvider";
-import axios from "axios";
+import React, { useEffect, useState } from "react";
 import Swal from "sweetalert2";
-
-const API = "http://localhost:3000";
+import { api } from "../../Utils/axiosInstance";
 
 const FoodRequestsTable = ({ foodId, onStatusUpdate }) => {
-  const { user } = useContext(AuthContext);
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState(null);
 
-  useEffect(() => {
+  const fetchRequests = async () => {
     if (!foodId) return;
-    setLoading(true);
-    axios
-      .get(`${API}/food-requests/${foodId}`)
-      .then((res) => {
-        const list = (res.data || []).map((r) => ({
-          ...r,
 
-          requesterName: r.requesterName || r.name || r.requester_name || "",
-          requesterEmail:
-            r.requesterEmail || r.requester_email || r.email || "",
-          requesterPhoto:
-            r.requesterPhoto || r.requester_photo || r.photoURL || "",
-        }));
-        setRequests(list);
-      })
-      .catch((err) => {
-        console.error(err);
-        Swal.fire("Failed to load requests", "", "error");
-      })
-      .finally(() => setLoading(false));
+    try {
+      setLoading(true);
+      const res = await api.get(`/requests/food/${foodId}`);
+      setRequests(res.data || []);
+    } catch (err) {
+      console.error("Failed to load requests:", err?.response?.data || err.message);
+      Swal.fire("Failed to load requests", "", "error");
+      setRequests([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchRequests();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [foodId]);
 
   const acceptRequest = async (requestId) => {
-    if (!user) {
-      Swal.fire("Login required", "", "info");
-      return;
-    }
-
     const confirm = await Swal.fire({
       title: "Accept request?",
       text: "Accepting will mark this request as accepted and mark the food as donated.",
@@ -53,26 +41,21 @@ const FoodRequestsTable = ({ foodId, onStatusUpdate }) => {
 
     try {
       setProcessingId(requestId);
-      const res = await axios.put(`${API}/request/accept/${requestId}`, {
-        foodId,
-      });
 
-      setRequests((prev) =>
-        prev.map((r) =>
-          r._id === requestId ? { ...r, status: "accepted" } : r
-        )
-      );
+      // 1) request status -> accepted
+      await api.patch(`/requests/${requestId}`, { status: "accepted" });
 
-      if (onStatusUpdate) onStatusUpdate("accepted");
+      // 2) food status -> donated
+      await api.patch(`/foods/status/${foodId}`);
 
-      Swal.fire(
-        "Accepted",
-        "Request accepted & food marked donated",
-        "success"
-      );
+      // 3) refresh
+      await fetchRequests();
+      onStatusUpdate?.("accepted");
+
+      Swal.fire("Accepted", "Request accepted & food marked donated", "success");
     } catch (err) {
-      console.error(err);
-      Swal.fire("Failed to accept", "", "error");
+      console.error("Failed to accept:", err?.response?.data || err.message);
+      Swal.fire("Failed to accept", err?.response?.data?.error || "", "error");
     } finally {
       setProcessingId(null);
     }
@@ -91,32 +74,29 @@ const FoodRequestsTable = ({ foodId, onStatusUpdate }) => {
 
     try {
       setProcessingId(requestId);
-      const res = await axios.put(`${API}/request/reject/${requestId}`);
 
-      setRequests((prev) =>
-        prev.map((r) =>
-          r._id === requestId ? { ...r, status: "rejected" } : r
-        )
-      );
+      // request status -> rejected
+      await api.patch(`/requests/${requestId}`, { status: "rejected" });
 
+      await fetchRequests();
       Swal.fire("Rejected", "Request marked as rejected", "success");
     } catch (err) {
-      console.error(err);
-      Swal.fire("Failed to reject", "", "error");
+      console.error("Failed to reject:", err?.response?.data || err.message);
+      Swal.fire("Failed to reject", err?.response?.data?.error || "", "error");
     } finally {
       setProcessingId(null);
     }
   };
 
   if (loading) return <p>Loading requests...</p>;
-  if (requests.length === 0) return <p>No requests yet for this food.</p>;
+  if (!requests.length) return <p>No requests yet for this food.</p>;
 
   return (
     <div className="overflow-x-auto">
       <table className="table w-full">
         <thead className="bg-base-200">
           <tr>
-            {/* <th>User</th> */}
+            <th>User</th>
             <th>Location</th>
             <th>Reason</th>
             <th>Contact</th>
@@ -129,14 +109,19 @@ const FoodRequestsTable = ({ foodId, onStatusUpdate }) => {
           {requests.map((req) => (
             <tr key={req._id}>
               <td className="flex items-center gap-2">
-                <img
-                  src={req.requesterPhoto || req.photoURL || ""}
-                  alt={req.requesterName || "User"}
-                  className="w-10 h-10 rounded-full object-cover"
-                />
+                {req.requesterPhoto ? (
+                  <img
+                    src={req.requesterPhoto}
+                    alt={req.requesterName || "User"}
+                    className="w-10 h-10 rounded-full object-cover"
+                  />
+                ) : (
+                  <div className="w-10 h-10 rounded-full bg-gray-200" />
+                )}
+
                 <div>
                   <div className="font-medium">
-                    {req.requesterName || req.name || "Unknown"}
+                    {req.requesterName || "Unknown"}
                   </div>
                   <div className="text-xs text-gray-500">
                     {req.requesterEmail || ""}
@@ -170,7 +155,7 @@ const FoodRequestsTable = ({ foodId, onStatusUpdate }) => {
                       onClick={() => acceptRequest(req._id)}
                       disabled={processingId === req._id}
                     >
-                      Accept
+                      {processingId === req._id ? "..." : "Accept"}
                     </button>
 
                     <button
@@ -178,7 +163,7 @@ const FoodRequestsTable = ({ foodId, onStatusUpdate }) => {
                       onClick={() => rejectRequest(req._id)}
                       disabled={processingId === req._id}
                     >
-                      Reject
+                      {processingId === req._id ? "..." : "Reject"}
                     </button>
                   </div>
                 ) : (

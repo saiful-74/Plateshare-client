@@ -2,10 +2,8 @@ import React, { useEffect, useState, useContext } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { AuthContext } from "../../Context/AuthProvider";
 import Swal from "sweetalert2";
-import axios from "axios";
 import FoodRequestsTable from "./FoodRequestsTable";
-
-const API = "https://plateshare-server-mu.vercel.app";
+import { api } from "../../Utils/axiosInstance"; // ✅ use your axios instance
 
 const FoodDetails = () => {
   const { id } = useParams();
@@ -23,25 +21,37 @@ const FoodDetails = () => {
 
   // Fetch food details
   useEffect(() => {
+    let isMounted = true;
     setLoading(true);
-    axios
-      .get(`${API}/foods/${id}`)
-      .then((res) => setFood(res.data))
-      .catch((err) => {
-        console.error(err);
-        setFood(null);
+
+    api
+      .get(`/foods/${id}`)
+      .then((res) => {
+        if (isMounted) setFood(res.data);
       })
-      .finally(() => setLoading(false));
+      .catch((err) => {
+        console.error("FoodDetails GET error:", err?.response?.data || err.message);
+        if (isMounted) setFood(null);
+      })
+      .finally(() => {
+        if (isMounted) setLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
   }, [id]);
 
-  // Loading / Not found
   if (loading) return <p className="text-center py-20">Loading...</p>;
   if (!food) return <p className="text-center py-20">Food not found.</p>;
 
   // Support both API shapes (donator nested OR flat)
   const donatorEmail = food?.donator_email || food?.donator?.email || "";
   const donatorName = food?.donator_name || food?.donator?.name || "";
-  const foodStatus = food?.food_status || "Available";
+
+  // Normalize status (Available / Donated)
+  const rawStatus = food?.food_status || "Available";
+  const foodStatus = String(rawStatus).toLowerCase(); // "available" | "donated"
 
   const {
     food_name,
@@ -54,7 +64,6 @@ const FoodDetails = () => {
 
   // Open request modal
   const openModal = () => {
-    // This route is private, but keep safe
     if (!user?.email) {
       Swal.fire("Please login first!", "", "info");
       navigate("/login");
@@ -88,30 +97,40 @@ const FoodDetails = () => {
 
     const requestData = {
       foodId: id,
+
+      // requester info
       requesterEmail: user.email,
       requesterName: user.displayName || "Anonymous",
       requesterPhoto: user.photoURL || "",
+
+      // form fields
       location: locationInput.trim(),
       reason: reasonInput.trim(),
       contact: contactInput.trim(),
+
+      // helpful extra fields (optional)
+      ownerEmail: donatorEmail,
+      foodName: food_name,
     };
 
     try {
       setSubmitting(true);
 
-      // ✅ live server endpoint
-      const res = await axios.post(`${API}/requests`, requestData);
+      const res = await api.post("/requests", requestData);
 
-      // Some servers return insertedId, some return acknowledged
       if (res?.data?.insertedId || res?.data?.acknowledged) {
         Swal.fire("Request sent!", "Your request is pending approval.", "success");
         setOpenRequestModal(false);
       } else {
-        Swal.fire("Request failed", "", "error");
+        Swal.fire("Request failed", "Unexpected server response.", "error");
       }
     } catch (err) {
-      console.error(err);
-      Swal.fire("Request failed", "Try again later.", "error");
+      console.error("Request POST error:", err?.response?.data || err.message);
+      Swal.fire(
+        "Request failed",
+        err?.response?.data?.error || "Try again later.",
+        "error"
+      );
     } finally {
       setSubmitting(false);
     }
@@ -164,12 +183,12 @@ const FoodDetails = () => {
 
             <span
               className={`px-3 py-1 rounded text-sm font-medium ${
-                foodStatus === "Available"
+                foodStatus === "available"
                   ? "bg-green-100 text-green-700"
                   : "bg-blue-100 text-blue-700"
               }`}
             >
-              {foodStatus}
+              {foodStatus === "available" ? "Available" : "Donated"}
             </span>
           </div>
         </div>
@@ -182,8 +201,8 @@ const FoodDetails = () => {
           <FoodRequestsTable
             foodId={id}
             onStatusUpdate={(newStatus) => {
-              if (newStatus === "accepted") {
-                setFood((prev) => ({ ...prev, food_status: "donated" }));
+              if (String(newStatus).toLowerCase() === "accepted") {
+                setFood((prev) => ({ ...prev, food_status: "Donated" }));
               }
             }}
           />
