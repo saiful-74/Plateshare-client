@@ -1,21 +1,24 @@
-import React, { useEffect, useState } from "react";
+import React, { useContext, useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import Swal from "sweetalert2";
-import { api } from "../../Utils/axiosInstance"; // ✅ env-based axios instance
+import { AuthContext } from "../../Context/AuthProvider";
+import { api } from "../../Utils/axiosInstance";
+import LoadingSpinner from "../../components/LoadingSpinner";
 
-const FoodRequestsTable = ({ foodId, onStatusUpdate }) => {
+const MyFoodRequests = () => {
+  const { user } = useContext(AuthContext);
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [processingId, setProcessingId] = useState(null);
 
-  const fetchRequests = async () => {
-    if (!foodId) return;
+  const fetchMyRequests = async () => {
+    if (!user?.email) return;
     try {
       setLoading(true);
-      const res = await api.get(`/requests/food/${foodId}`);
-      setRequests(res.data || []);
+      const res = await api.get("/requests", { params: { email: user.email } });
+      setRequests(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
-      console.error("Failed to load requests:", err?.response?.data || err.message);
-      Swal.fire("Failed to load requests", "", "error");
+      console.error(err);
+      Swal.fire("Failed to load your requests", "", "error");
       setRequests([]);
     } finally {
       setLoading(false);
@@ -23,158 +26,73 @@ const FoodRequestsTable = ({ foodId, onStatusUpdate }) => {
   };
 
   useEffect(() => {
-    fetchRequests();
+    fetchMyRequests();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [foodId]);
+  }, [user?.email]);
 
-  const acceptRequest = async (requestId) => {
-    const confirm = await Swal.fire({
-      title: "Accept request?",
-      text: "Accepting will mark the request as accepted and mark the food as donated.",
-      icon: "question",
-      showCancelButton: true,
-      confirmButtonText: "Yes, accept",
-    });
-
-    if (!confirm.isConfirmed) return;
-
-    try {
-      setProcessingId(requestId);
-
-      // 1) request status -> accepted
-      await api.patch(`/requests/${requestId}`, { status: "accepted" });
-
-      // 2) food status -> donated
-      await api.patch(`/foods/status/${foodId}`);
-
-      // 3) refresh UI
-      await fetchRequests();
-      onStatusUpdate?.("accepted");
-
-      Swal.fire("Accepted", "Request accepted & food marked donated", "success");
-    } catch (err) {
-      console.error("Accept failed:", err?.response?.data || err.message);
-      Swal.fire("Failed to accept", err?.response?.data?.error || "", "error");
-    } finally {
-      setProcessingId(null);
-    }
-  };
-
-  const rejectRequest = async (requestId) => {
-    const confirm = await Swal.fire({
-      title: "Reject request?",
-      text: "This will mark the request as rejected.",
-      icon: "warning",
-      showCancelButton: true,
-      confirmButtonText: "Yes, reject",
-    });
-
-    if (!confirm.isConfirmed) return;
-
-    try {
-      setProcessingId(requestId);
-
-      // request status -> rejected
-      await api.patch(`/requests/${requestId}`, { status: "rejected" });
-
-      await fetchRequests();
-      Swal.fire("Rejected", "Request marked as rejected", "success");
-    } catch (err) {
-      console.error("Reject failed:", err?.response?.data || err.message);
-      Swal.fire("Failed to reject", err?.response?.data?.error || "", "error");
-    } finally {
-      setProcessingId(null);
-    }
-  };
-
-  if (loading) return <p>Loading requests...</p>;
-  if (!requests.length) return <p>No requests yet for this food.</p>;
+  if (loading) return <LoadingSpinner />;
 
   return (
-    <div className="overflow-x-auto">
-      <table className="table w-full">
-        <thead className="bg-base-200">
-          <tr>
-            <th>User</th>
-            <th>Location</th>
-            <th>Reason</th>
-            <th>Contact</th>
-            <th>Status</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
+    <div className="max-w-7xl mx-auto px-4 py-10">
+      <h2 className="text-3xl font-bold mb-6">My Food Requests</h2>
 
-        <tbody>
-          {requests.map((req) => (
-            <tr key={req._id}>
-              <td className="flex items-center gap-2">
-                {req.requesterPhoto ? (
-                  <img
-                    src={req.requesterPhoto}
-                    alt={req.requesterName || "User"}
-                    className="w-10 h-10 rounded-full object-cover"
-                  />
-                ) : (
-                  <div className="w-10 h-10 rounded-full bg-gray-200" />
-                )}
+      {!requests.length ? (
+        <div className="bg-base-200 rounded-xl p-6">
+          <p className="text-gray-600">You haven’t requested any food yet.</p>
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="table table-zebra w-full">
+            <thead className="bg-base-200">
+              <tr>
+                <th>Food</th>
+                <th>Owner Email</th>
+                <th>My Location</th>
+                <th>Contact</th>
+                <th>Status</th>
+                <th>View</th>
+              </tr>
+            </thead>
 
-                <div>
-                  <div className="font-medium">
-                    {req.requesterName || "Unknown"}
-                  </div>
-                  <div className="text-xs text-gray-500">
-                    {req.requesterEmail || ""}
-                  </div>
-                </div>
-              </td>
+            <tbody>
+              {requests.map((r) => (
+                <tr key={r._id}>
+                  <td className="font-medium">{r.foodName || "Food item"}</td>
+                  <td>{r.ownerEmail || "-"}</td>
+                  <td>{r.location || "-"}</td>
+                  <td>{r.contact || "-"}</td>
 
-              <td>{req.location || "-"}</td>
-              <td style={{ maxWidth: 240 }}>{req.reason || "-"}</td>
-              <td>{req.contact || "-"}</td>
-
-              <td>
-                <span
-                  className={`badge ${
-                    req.status === "pending"
-                      ? "badge-warning"
-                      : req.status === "accepted"
-                      ? "badge-success"
-                      : "badge-error"
-                  }`}
-                >
-                  {req.status}
-                </span>
-              </td>
-
-              <td>
-                {req.status === "pending" ? (
-                  <div className="flex gap-2">
-                    <button
-                      className="btn btn-success btn-sm"
-                      onClick={() => acceptRequest(req._id)}
-                      disabled={processingId === req._id}
+                  <td>
+                    <span
+                      className={`badge ${
+                        r.status === "pending"
+                          ? "badge-warning"
+                          : r.status === "accepted"
+                          ? "badge-success"
+                          : "badge-error"
+                      }`}
                     >
-                      Accept
-                    </button>
+                      {r.status}
+                    </span>
+                  </td>
 
-                    <button
-                      className="btn btn-error btn-sm"
-                      onClick={() => rejectRequest(req._id)}
-                      disabled={processingId === req._id}
-                    >
-                      Reject
-                    </button>
-                  </div>
-                ) : (
-                  <div className="text-sm text-gray-600">No actions</div>
-                )}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+                  <td>
+                    {r.foodId ? (
+                      <Link className="btn btn-sm btn-outline" to={`/food/${r.foodId}`}>
+                        Details
+                      </Link>
+                    ) : (
+                      <span className="text-gray-400 text-sm">N/A</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 };
 
-export default FoodRequestsTable;
+export default MyFoodRequests;

@@ -1,3 +1,4 @@
+import { api } from "../../Utils/axiosInstance";
 import React, { useContext, useState } from "react";
 import { toast } from "react-toastify";
 import { AuthContext } from "../../Context/AuthProvider";
@@ -38,13 +39,17 @@ const AddFood = () => {
       setLoading(true);
 
       // ✅ Direct fetch to LOCAL backend
-      const res = await fetch("http://localhost:3000/add-food", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(foodData),
-      });
+      // const res = await fetch("http://localhost:3000/add-food", {
+      //   method: "POST",
+      //   headers: { "Content-Type": "application/json" },
+      //   body: JSON.stringify(foodData),
+      // });
 
-      const data = await res.json();
+      // const data = await res.json();
+      // old: fetch("http://localhost:3000/add-food", ...)
+const res = await api.post("/add-food", foodData);
+const data = res.data;
+
 
       if (!res.ok) {
         console.log("Server error response:", data);

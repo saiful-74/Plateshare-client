@@ -1,7 +1,7 @@
+import { api } from "../../Utils/axiosInstance";
 import { useContext, useEffect, useState } from "react";
 import { AuthContext } from "../../Context/AuthProvider";
 import Swal from "sweetalert2";
-import axios from "axios";
 
 const ManageMyFoods = () => {
   const { user } = useContext(AuthContext);
@@ -9,22 +9,21 @@ const ManageMyFoods = () => {
   const [selectedFood, setSelectedFood] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchMyFoods = async () => {
-    if (!user?.email) return;
-    try {
-      setLoading(true);
-      const res = await axios.get(
-        `https://plateshare-server-mu.vercel.app/my-foods?email=${user.email}`
-      );
-      setFoods(res.data);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  // ✅ GET my foods
   useEffect(() => {
+    const fetchMyFoods = async () => {
+      if (!user?.email) return;
+      try {
+        setLoading(true);
+        const res = await api.get(`/my-foods?email=${user.email}`);
+        setFoods(res.data);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
     fetchMyFoods();
 
     const handleFoodAdded = () => {
@@ -32,12 +31,10 @@ const ManageMyFoods = () => {
     };
 
     window.addEventListener("foodAdded", handleFoodAdded);
-
-    return () => {
-      window.removeEventListener("foodAdded", handleFoodAdded);
-    };
+    return () => window.removeEventListener("foodAdded", handleFoodAdded);
   }, [user]);
 
+  // ✅ DELETE food
   const handleDelete = (id) => {
     Swal.fire({
       title: "Are you sure?",
@@ -48,9 +45,7 @@ const ManageMyFoods = () => {
       cancelButtonText: "Cancel",
     }).then(async (result) => {
       if (result.isConfirmed) {
-        const res = await axios.delete(
-          `https://plateshare-server-mu.vercel.app/foods/${id}`
-        );
+        const res = await api.delete(`/foods/${id}`);
         if (res.data.deletedCount > 0) {
           setFoods(foods.filter((f) => f._id !== id));
           Swal.fire("Deleted!", "Food removed successfully", "success");
@@ -59,9 +54,11 @@ const ManageMyFoods = () => {
     });
   };
 
+  // ✅ PATCH update food
   const handleUpdate = async (e) => {
     e.preventDefault();
     const form = e.target;
+
     const updatedData = {
       food_name: form.food_name.value,
       food_image: form.food_image.value,
@@ -72,8 +69,8 @@ const ManageMyFoods = () => {
     };
 
     try {
-      const res = await axios.put(
-        `https://plateshare-server-mu.vercel.app/foods/${selectedFood._id}`,
+      const res = await api.patch(
+        `/foods/${selectedFood._id}`,
         updatedData
       );
 
@@ -97,9 +94,11 @@ const ManageMyFoods = () => {
 
   return (
     <div className="max-w-6xl mx-auto my-12 px-4">
-            <title>Manage Foods | Plateshare</title>
+      <title>Manage Foods | Plateshare</title>
 
-      <h2 className="text-3xl font-bold text-center mb-10">Manage My Foods</h2>
+      <h2 className="text-3xl font-bold text-center mb-10">
+        Manage My Foods
+      </h2>
 
       {foods.length === 0 ? (
         <p className="text-center text-gray-500 text-xl">
@@ -132,7 +131,9 @@ const ManageMyFoods = () => {
                   <td className="font-medium">{food.food_name}</td>
                   <td>{food.food_quantity}</td>
                   <td>{food.pickup_location}</td>
-                  <td>{new Date(food.expire_date).toLocaleDateString()}</td>
+                  <td>
+                    {new Date(food.expire_date).toLocaleDateString()}
+                  </td>
                   <td>
                     <span className="badge badge-success text-white">
                       {food.food_status}
@@ -163,6 +164,7 @@ const ManageMyFoods = () => {
         <dialog open className="modal modal-bottom sm:modal-middle">
           <div className="modal-box">
             <h3 className="font-bold text-xl mb-4">Update Food</h3>
+
             <form onSubmit={handleUpdate} className="space-y-4">
               <input
                 name="food_name"

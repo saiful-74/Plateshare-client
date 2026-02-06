@@ -42,13 +42,9 @@ const FoodRequestsTable = ({ foodId, onStatusUpdate }) => {
     try {
       setProcessingId(requestId);
 
-      // 1) request status -> accepted
       await api.patch(`/requests/${requestId}`, { status: "accepted" });
-
-      // 2) food status -> donated
       await api.patch(`/foods/status/${foodId}`);
 
-      // 3) refresh
       await fetchRequests();
       onStatusUpdate?.("accepted");
 
@@ -75,7 +71,6 @@ const FoodRequestsTable = ({ foodId, onStatusUpdate }) => {
     try {
       setProcessingId(requestId);
 
-      // request status -> rejected
       await api.patch(`/requests/${requestId}`, { status: "rejected" });
 
       await fetchRequests();
@@ -87,6 +82,9 @@ const FoodRequestsTable = ({ foodId, onStatusUpdate }) => {
       setProcessingId(null);
     }
   };
+
+  // ✅ Minimal UI fix
+  const hasAccepted = requests.some((r) => r.status === "accepted");
 
   if (loading) return <p>Loading requests...</p>;
   if (!requests.length) return <p>No requests yet for this food.</p>;
@@ -149,23 +147,29 @@ const FoodRequestsTable = ({ foodId, onStatusUpdate }) => {
 
               <td>
                 {req.status === "pending" ? (
-                  <div className="flex gap-2">
-                    <button
-                      className="btn btn-success btn-sm"
-                      onClick={() => acceptRequest(req._id)}
-                      disabled={processingId === req._id}
-                    >
-                      {processingId === req._id ? "..." : "Accept"}
-                    </button>
+                  hasAccepted ? (
+                    <div className="text-sm text-gray-600">
+                      Locked (already donated)
+                    </div>
+                  ) : (
+                    <div className="flex gap-2">
+                      <button
+                        className="btn btn-success btn-sm"
+                        onClick={() => acceptRequest(req._id)}
+                        disabled={processingId === req._id}
+                      >
+                        {processingId === req._id ? "..." : "Accept"}
+                      </button>
 
-                    <button
-                      className="btn btn-error btn-sm"
-                      onClick={() => rejectRequest(req._id)}
-                      disabled={processingId === req._id}
-                    >
-                      {processingId === req._id ? "..." : "Reject"}
-                    </button>
-                  </div>
+                      <button
+                        className="btn btn-error btn-sm"
+                        onClick={() => rejectRequest(req._id)}
+                        disabled={processingId === req._id}
+                      >
+                        {processingId === req._id ? "..." : "Reject"}
+                      </button>
+                    </div>
+                  )
                 ) : (
                   <div className="text-sm text-gray-600">No actions</div>
                 )}
