@@ -60,4 +60,4 @@ Hosting: Client (Netlify/Firebase), Server (Vercel)
 
 🔗 Live Site
 
-precious-sherbet-5eb747.netlify.app
+https://heartfelt-biscuit-b915e9.netlify.app/
