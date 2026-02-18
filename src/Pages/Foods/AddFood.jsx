@@ -1,3 +1,4 @@
+import { uploadToImgbb } from "../../Utils/uploadToImgbb";
 import { api } from "../../Utils/axiosInstance";
 import React, { useContext, useState } from "react";
 import { toast } from "react-toastify";
@@ -17,57 +18,46 @@ const AddFood = () => {
 
     const form = e.target;
 
-    const foodData = {
-      food_name: form.foodName.value.trim(),
-      food_image: form.foodImage.value.trim(),
-      food_quantity: Number(form.foodQuantity.value),
-      pickup_location: form.pickupLocation.value.trim(),
-      expire_date: form.expireDate.value,
-      additional_notes: form.additionalNotes.value?.trim() || "",
-      food_status: "Available",
-      donator_name: user?.displayName || "Unknown",
-      donator_email: user?.email,
-      donator_photo: user?.photoURL || "",
-    };
-
-    if (!foodData.food_name || !foodData.food_image || !foodData.pickup_location) {
-      toast.error("Please fill all required fields!");
-      return;
-    }
-
     try {
       setLoading(true);
 
-      // ✅ Direct fetch to LOCAL backend
-      // const res = await fetch("http://localhost:3000/add-food", {
-      //   method: "POST",
-      //   headers: { "Content-Type": "application/json" },
-      //   body: JSON.stringify(foodData),
-      // });
-
-      // const data = await res.json();
-      // old: fetch("http://localhost:3000/add-food", ...)
-const res = await api.post("/add-food", foodData);
-const data = res.data;
-
-
-      if (!res.ok) {
-        console.log("Server error response:", data);
-        toast.error(data?.message || "Failed to add food (server error)");
+      // ✅ file input
+      const imageFile = form.foodImage.files?.[0];
+      if (!imageFile) {
+        toast.error("Please select a food image!");
         return;
       }
 
-      if (data?.insertedId) {
+      // ✅ upload to imgbb
+      const imageUrl = await uploadToImgbb(imageFile);
+
+      const foodData = {
+        food_name: form.foodName.value.trim(),
+        food_image: imageUrl,
+        food_quantity: Number(form.foodQuantity.value),
+        pickup_location: form.pickupLocation.value.trim(),
+        expire_date: form.expireDate.value,
+        additional_notes: form.additionalNotes.value?.trim() || "",
+        food_status: "available", // ✅ keep consistent lowercase
+        donator_name: user?.displayName || "Unknown",
+        donator_email: user?.email,
+        donator_photo: user?.photoURL || "",
+      };
+
+      const res = await api.post("/add-food", foodData);
+      const data = res.data;
+
+      if (data?.insertedId || data?.acknowledged) {
         toast.success("Food added successfully!");
         form.reset();
         window.dispatchEvent(new Event("foodAdded"));
       } else {
-        toast.error("Food not added (no insertedId returned).");
+        toast.error("Food not added.");
         console.log("Response:", data);
       }
     } catch (err) {
-      console.error("Fetch error:", err);
-      toast.error("Failed to add food (network error)");
+      console.error(err);
+      toast.error(err.message || "Failed to add food");
     } finally {
       setLoading(false);
     }
@@ -87,8 +77,14 @@ const data = res.data;
           </div>
 
           <div className="space-y-2">
-            <label className="font-medium">Food URL :</label>
-            <input type="url" name="foodImage" className="input input-bordered w-full" required />
+            <label className="font-medium">Food Image :</label>
+            <input
+              type="file"
+              name="foodImage"
+              accept="image/*"
+              className="file-input file-input-bordered w-full"
+              required
+            />
           </div>
 
           <div className="space-y-2">

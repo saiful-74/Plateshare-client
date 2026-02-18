@@ -2,6 +2,7 @@ import { api } from "../../Utils/axiosInstance";
 import { useContext, useEffect, useState } from "react";
 import { AuthContext } from "../../Context/AuthProvider";
 import Swal from "sweetalert2";
+import { uploadToImgbb } from "../../Utils/uploadToImgbb";  // ✅ 1. Import added
 
 const ManageMyFoods = () => {
   const { user } = useContext(AuthContext);
@@ -54,14 +55,23 @@ const ManageMyFoods = () => {
     });
   };
 
-  // ✅ PATCH update food
+  // ✅ UPDATE food (PUT + image upload)
   const handleUpdate = async (e) => {
     e.preventDefault();
     const form = e.target;
 
+    // ----- Image upload logic -----
+    let imageUrl = selectedFood.food_image;                // keep existing by default
+    const newFile = form.food_image.files?.[0];            // get selected file (if any)
+
+    if (newFile) {
+      imageUrl = await uploadToImgbb(newFile);             // upload and get new URL
+    }
+    // ------------------------------
+
     const updatedData = {
       food_name: form.food_name.value,
-      food_image: form.food_image.value,
+      food_image: imageUrl,                                 // use uploaded or existing
       food_quantity: form.food_quantity.value,
       pickup_location: form.pickup_location.value,
       expire_date: form.expire_date.value,
@@ -69,10 +79,8 @@ const ManageMyFoods = () => {
     };
 
     try {
-      const res = await api.patch(
-        `/foods/${selectedFood._id}`,
-        updatedData
-      );
+      // ✅ 2. Changed from PATCH to PUT
+      const res = await api.put(`/foods/${selectedFood._id}`, updatedData);
 
       if (res.data.modifiedCount > 0) {
         setFoods(
@@ -172,12 +180,17 @@ const ManageMyFoods = () => {
                 className="input input-bordered w-full"
                 required
               />
+              {/* ✅ 3. Changed to file input with accept and helpful text */}
               <input
                 name="food_image"
-                defaultValue={selectedFood.food_image}
-                className="input input-bordered w-full"
-                required
+                type="file"
+                accept="image/*"
+                className="file-input file-input-bordered w-full"
               />
+              <p className="text-xs text-gray-500 -mt-2">
+                Leave empty to keep current image.
+              </p>
+
               <input
                 name="food_quantity"
                 type="number"
